@@ -1,0 +1,15 @@
+[project]
+name = "apic"
+version = "0.1.0"
+description = "Apic — a small interpreted programming language"
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
