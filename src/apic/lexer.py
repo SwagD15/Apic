@@ -191,7 +191,7 @@ class Lexer:
 #     source = '''## calculate sum ##
 # tho x = 10;
 # tho y = 20.5;
-# if x < y {
+# if (x < y) {
 #     outf("y is bigger");
 # }'''
 #     for tok in Lexer(source).tokenize():
