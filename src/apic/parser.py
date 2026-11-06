@@ -134,4 +134,121 @@ class Parser:
             self.expect(TokenType.RBRACKET, "Expected ']' after array elements")
             return ArrayLiteral(elements)
         raise ParseError("Expected expression", self.peek().line)                                     
-    
+    def parse(self):
+        statements = []
+        while not self.is_at_end():
+            statements.append(self.declaration())
+        return Program(statements)
+
+    def declaration(self):
+        if self.match(TokenType.THO):
+            return self.var_declaration(False)
+        if self.match(TokenType.CONST):
+            return self.var_declaration(True)
+        if self.match(TokenType.FUN):
+            return self.function_declaration()
+        return self.statement()
+
+    def var_declaration(self, is_const):
+        name = self.expect(TokenType.IDENTIFIER, "Expected variable name").value
+        if self.match(TokenType.LBRACKET):          # array form: tho x[] = [1, 2];
+            self.expect(TokenType.RBRACKET, "Expected ']' in array declaration")
+        self.expect(TokenType.EQ, "Expected '=' after variable name")
+        value = self.expression()
+        self.expect(TokenType.SEMICOLON, "Expected ';' after declaration")
+        return VarDecl(name, value, is_const)
+
+    def function_declaration(self):
+        name = self.expect(TokenType.IDENTIFIER, "Expected function name").value
+        self.expect(TokenType.LPAREN, "Expected '(' after function name")
+        params = self.parameters()
+        self.expect(TokenType.RPAREN, "Expected ')' after parameters")
+        body = self.block()
+        return Function(name, params, body)
+
+    def parameters(self):
+        params = []
+        if not self.check(TokenType.RPAREN):
+            params.append(self.expect(TokenType.IDENTIFIER, "Expected parameter name").value)
+            while self.match(TokenType.COMMA):
+                params.append(self.expect(TokenType.IDENTIFIER, "Expected parameter name").value)
+        return params
+    def statement(self):
+        if self.match(TokenType.IF):
+            return self.if_statement()
+        if self.match(TokenType.LOOP):
+            return self.loop_statement()
+        if self.match(TokenType.RETURN):
+            return self.return_statement()
+        if self.check(TokenType.LBRACE):
+            return self.block()
+        return self.assignment_or_expression_statement()
+
+    def assignment_or_expression_statement(self):
+        expr = self.expression()
+        if self.match(TokenType.EQ):
+            if not isinstance(expr, (Identifier, Index)):
+                raise ParseError("Invalid assignment target", self.previous().line)
+            value = self.expression()
+            self.expect(TokenType.SEMICOLON, "Expected ';' after assignment")
+            return Assign(expr, value)
+        self.expect(TokenType.SEMICOLON, "Expected ';' after expression")
+        return ExprStmt(expr)
+
+    def block(self):
+        self.expect(TokenType.LBRACE, "Expected '{'")
+        statements = []
+        while not self.check(TokenType.RBRACE) and not self.is_at_end():
+            statements.append(self.declaration())
+        self.expect(TokenType.RBRACE, "Expected '}' to close block")
+        return Block(statements)
+
+    def return_statement(self):
+        value = None
+        if not self.check(TokenType.SEMICOLON):
+            value = self.expression()
+        self.expect(TokenType.SEMICOLON, "Expected ';' after return")
+        return Return(value)    
+    def if_statement(self):
+        self.expect(TokenType.LPAREN, "Expected '(' after 'if'")
+        condition = self.expression()
+        self.expect(TokenType.RPAREN, "Expected ')' after condition")
+        then_block = self.block()
+
+        elseifs = []
+        while self.match(TokenType.ELSEIF):
+            self.expect(TokenType.LPAREN, "Expected '(' after 'elseif'")
+            cond = self.expression()
+            self.expect(TokenType.RPAREN, "Expected ')' after condition")
+            elseifs.append((cond, self.block()))
+
+        else_block = None
+        if self.match(TokenType.ELSE):
+            else_block = self.block()
+
+        return If(condition, then_block, elseifs, else_block)
+
+    def loop_statement(self):
+        self.expect(TokenType.LPAREN, "Expected '(' after 'loop'")
+
+        target = self.expression()
+        if not isinstance(target, Identifier):
+            raise ParseError("Loop initializer must assign to a variable", self.previous().line)
+        self.expect(TokenType.EQ, "Expected '=' in loop initializer")
+        initializer = Assign(target, self.expression())
+        self.expect(TokenType.SEMICOLON, "Expected ';' after loop initializer")
+
+        condition = self.expression()
+        self.expect(TokenType.SEMICOLON, "Expected ';' after loop condition")
+
+        incr_target = self.expression()
+        if self.match(TokenType.PLUS_PLUS):
+            increment = Increment(incr_target, TokenType.PLUS_PLUS)
+        elif self.match(TokenType.MINUS_MINUS):
+            increment = Increment(incr_target, TokenType.MINUS_MINUS)
+        else:
+            raise ParseError("Expected '++' or '--' in loop increment", self.peek().line)
+        self.expect(TokenType.RPAREN, "Expected ')' after loop clauses")
+
+        body = self.block()
+        return Loop(initializer, condition, increment, body)        
