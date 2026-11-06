@@ -21,5 +21,5 @@ from apic.parser import Parser
 #source = 'loop(i = 0; i < 10; i++) { outf(i); }'
 #source = 'fun add(a, b) { return a + b; }'
 
-source = 'fun add(a, b) { return a + b; }'
+source = ''
 pprint(Parser(Lexer(source).tokenize()).parse())
